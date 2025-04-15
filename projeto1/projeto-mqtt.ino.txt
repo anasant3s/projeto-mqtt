@@ -1,0 +1,73 @@
+// bibliotecas necessárias
+#include <WiFi.h>             // biblioteca para conexão wi-fi
+#include <PubSubClient.h>     // biblioteca para comunicação mqtt
+#include <DHT.h>              // biblioteca para o sensor dht
+
+// configuração do sensor dht
+#define DHTPIN 15             // define o pino onde o sensor está conectado
+#define DHTTYPE DHT22         // define o tipo de sensor (dht22)
+DHT dht(DHTPIN, DHTTYPE);     // cria um objeto dht com o pino e tipo definidos
+
+// dados da rede wi-fi
+const char* ssid = "SEU_WIFI";          // nome da rede wi-fi
+const char* password = "SENHA_DO_WIFI"; // senha da rede wi-fi
+
+// configuração do broker mqtt
+const char* mqttServer = "broker.hivemq.com"; // endereço do broker mqtt (público)
+const int mqttPort = 1883;                    // porta padrão do protocolo mqtt
+const char* topicTemp = "meuprojeto/temperatura"; // tópico para publicar temperatura
+const char* topicUmid = "meuprojeto/umidade";     // tópico para publicar umidade
+
+// criação dos objetos de cliente
+WiFiClient espClient;               // cliente wi-fi
+PubSubClient client(espClient);     // cliente mqtt baseado no cliente wi-fi
+
+void setup() {
+  Serial.begin(115200);     // inicia a comunicação serial
+  dht.begin();              // inicia o sensor dht
+
+  // conecta ao wi-fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");      // mostra progresso da conexão
+  }
+  Serial.println("wifi conectado");
+
+  // define o servidor mqtt
+  client.setServer(mqttServer, mqttPort);
+}
+
+void loop() {
+  // se o cliente mqtt não estiver conectado, tenta reconectar
+  if (!client.connected()) {
+    while (!client.connected()) {
+      Serial.print("conectando ao mqtt...");
+      if (client.connect("ESP32Client")) {  // id do cliente mqtt
+        Serial.println("conectado!");
+      } else {
+        Serial.print("falha. rc=");
+        Serial.print(client.state());       // mostra o código de erro
+        delay(2000);                        // espera antes de tentar de novo
+      }
+    }
+  }
+
+  // leitura dos dados do sensor
+  float temp = dht.readTemperature(); // lê a temperatura
+  float umid = dht.readHumidity();    // lê a umidade
+
+  // verifica se as leituras são válidas
+  if (!isnan(temp) && !isnan(umid)) {
+    char tempStr[8], umidStr[8];                   // cria strings para os dados
+    dtostrf(temp, 1, 2, tempStr);                  // converte float para string
+    dtostrf(umid, 1, 2, umidStr);                  // converte float para string
+
+    client.publish(topicTemp, tempStr);            // publica a temperatura
+    client.publish(topicUmid, umidStr);            // publica a umidade
+  }
+
+  client.loop();       // mantém a conexão mqtt ativa
+  delay(5000);         // espera 5 segundos para a próxima leitura
+}
+

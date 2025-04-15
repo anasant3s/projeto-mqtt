@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Painel MQTT</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: beige; }
+    h1 { color: #333; }
+    .dado { font-size: 2em; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Painel de Monitoramento</h1>
+  <div class="dado"> Temperatura: <span id="temp">--</span>°C</div>
+  <div class="dado"> Umidade: <span id="umid">--</span>%</div>
+
+  <script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script> 
+  <script>
+    const client = new Paho.MQTT.Client("broker.hivemq.com", 8000, "webClient" + Math.random());
+
+    client.connect({ onSuccess: onConnect });
+
+    function onConnect() {
+      console.log("Conectado ao broker MQTT!");
+      client.subscribe("meuprojeto/temperatura");
+      client.subscribe("meuprojeto/umidade");
+    }
+
+    client.onMessageArrived = function (msg) {
+      if (msg.destinationName === "meuprojeto/temperatura") {
+        document.getElementById("temp").textContent = msg.payloadString;
+      } else if (msg.destinationName === "meuprojeto/umidade") {
+        document.getElementById("umid").textContent = msg.payloadString;
+      }
+    };
+  </script>
+</body>
+</html>
